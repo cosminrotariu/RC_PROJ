@@ -9,9 +9,15 @@
 #include <signal.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include "sqlite3.h"
+
+char *error;
+sqlite3 *db;
+sqlite3_stmt *stmt;
 pthread_t th[100]; //Identificatorii thread-urilor care se vor crea
 pthread_t identificatori[100];
 int k = 0;
+int OK = 0;
 int sd; //socket descriptor
 #define PORT 3000
 int i;
@@ -27,7 +33,8 @@ static void *treat(void *); /* functia executata de fiecare thread ce realizeaza
 int raspunde(void *);
 struct sockaddr_in server; // structura folosita de server
 struct sockaddr_in from;
-
+int logare(void *arg);
+void *treat(void *arg);
 void *read_stdin(void *arg) //in lucru
 {
 
@@ -57,9 +64,136 @@ void upload_to_db(char filename[30], char adress[300], int port)
 {
   printf("Called upload_to_db()\n");
 }
+int login(char msg[500], void *arg)
+{
+  if (strstr(msg, "?login"))
+  {
+    //?login andrei:parola
+    printf("ai scris login\n");
+    char password[25];
+    char username[25];
+    char credentials[50];
+    struct thData tdL;
+    tdL = *((struct thData *)arg);
+    int lg = 0;
+    strcpy(credentials, msg + 7);
+    for (int i = 0; strlen(credentials); i++)
+    {
+      if (credentials[i] == ':')
+      {
+        for (int j = i + 1; j < strlen(credentials); j++)
+        {
+          password[lg++] = credentials[j];
+        }
+        //password[strlen(credentials)] = '\0';
+        for (int k = 0; k < i; k++)
+        {
+          username[k] = credentials[k];
+        }
+        username[i] = '\0';
+        break;
+      }
+    }
+    printf("user: %s, pass: %s\n", username, password);
+    sqlite3_prepare_v2(db, "select * from login;", -1, &stmt, 0);
+    char *user, *pass;
+    while (sqlite3_step(stmt) != SQLITE_DONE)
+    {
+      user = sqlite3_column_text(stmt, 0);
+      pass = sqlite3_column_text(stmt, 1);
+      printf("userul:%s, parola:%s\n", user, pass);
+      if (strcmp(username, user) == 0)
+      {
+        if (strcmp(password, pass) == 0)
+        {
+          printf("logare reusita\n");
+          return 1;
+        }
+        else
+        {
+          printf("parola nu este buna\n");
+          if (write(tdL.cl, "parola incorecta", 100) <= 0)
+          {
+            perror("[s] Eroare la write() catre client.\n");
+          }
+          return 0;
+        }
+      }
+    }
+    printf("contul nu exista. va rugam sa va creati un cont\n");
+    if (write(tdL.cl, "contul nu exista.", 100) <= 0)
+    {
+      perror("[s] Eroare la write() catre client.\n");
+    }
+    return 0;
+  }
+  else if (strstr(msg, "?register"))
+  {
+    char password[25];
+    char username[25];
+    char credentials[50];
+    int lg = 0;
+    strcpy(credentials, msg + 10);
+    for (int i = 0; i < strlen(credentials); i++)
+    {
+      if (credentials[i] == ':')
+      {
+        for (int j = i + 1; j < strlen(credentials); j++)
+        {
+          password[lg++] = credentials[j];
+        }
+        memmove(&password[lg], &password[lg + (strlen(password) - lg)], strlen(password) - lg);
+        for (int k = 0; k < i; k++)
+        {
+          username[k] = credentials[k];
+        }
+        username[i] = '\0';
+        break;
+      }
+    }
+    //printf("user: %s, pass: %s\n", username, password);
+    sqlite3_prepare_v2(db, "select user from login;", -1, &stmt, 0);
+    char *user;
+    int ok2 = 1;
+    while (sqlite3_step(stmt) != SQLITE_DONE)
+    {
+      user = sqlite3_column_text(stmt, 0);
+      if (strcmp(username, user) == 0)
+      {
+        printf("contul exista deja. va rugam sa alegeti alt user.\n");
+        return 0;
+      }
+    }
+    if (ok2 == 1)
+    {
 
+      char insert[] = "insert into login VALUES(\"";
+      strcpy(insert + strlen(insert), username);
+      strcpy(insert + strlen(insert), "\",\"");
+      strcpy(insert + strlen(insert), password);
+      strcpy(insert + strlen(insert), "\");");
+      int verif_insert = sqlite3_exec(db, insert, NULL, NULL, &error);
+      if (verif_insert != SQLITE_OK)
+      {
+        printf("[s] eroare: %s\n", error);
+      }
+      return 1;
+    }
+  }
+}
 int main()
 {
+  sqlite3_open("myDb.db", &db);
+  int verif_login_table = sqlite3_exec(db, "create table if not exists login(user varchar(50), pass varchar(50));", NULL, NULL, &error);
+  if (verif_login_table != SQLITE_OK)
+  {
+    printf("[s] eroare: %s", error);
+  }
+  int verif_shared_files_table = sqlite3_exec(db, "create table if not exists files(port int, filename varchar(50), dir_parent varchar(50), extension varchar(10));", NULL, NULL, &error);
+  if (verif_shared_files_table != SQLITE_OK)
+  {
+    printf("[s] eroare: %s", error);
+  }
   int pid;
   i = 0;
   printf("Serverul a pornit. Se asteapta conexiuni...\n");
@@ -117,10 +251,15 @@ void *treat(void *arg)
 {
   struct thData tdL;
   tdL = *((struct thData *)arg);
+  int logged_in = 0;
   while (1)
   {
     printf("[s] Asteptam mesajul de la clientul %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
     fflush(stdout);
+    while (logged_in != 1)
+    {
+      logged_in = logare((struct thData *)arg);
+    }
     int ok = raspunde((struct thData *)arg);
     if (ok == 0)
       break;
@@ -129,12 +268,45 @@ void *treat(void *arg)
   close((intptr_t)arg);
   return (NULL);
 };
+int logare(void *arg)
+{
+  char msg[100];
 
+  struct thData tdL;
+  tdL = *((struct thData *)arg);
+
+  if (read(tdL.cl, msg, 100) <= 0)
+  {
+    perror("[s] Eroare la read() de la client.\n");
+  }
+  if (strstr(msg, "?login") || strstr(msg, "?register"))
+  {
+
+    printf("[s] %s:%d -> %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), msg);
+    //printf("[s] Trimitem inapoi mesajul la clientul %s:%d... %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), nr);
+    if (OK == 0)
+    {
+      OK = login(msg, arg);
+      //printf("%d\n", OK);
+      if (OK == 1)
+      {
+        if (write(tdL.cl, "conectat.", 100) <= 0)
+        {
+          perror("[s] Eroare la write() catre client.\n");
+        }
+        return 1;
+      }
+      return 0;
+    }
+  }
+}
 int raspunde(void *arg)
 {
   char msg[100];
+
   struct thData tdL;
   tdL = *((struct thData *)arg);
+
   if (read(tdL.cl, msg, 100) <= 0)
   {
     perror("[s] Eroare la read() de la client.\n");
@@ -144,41 +316,32 @@ int raspunde(void *arg)
     printf("[s] deconectat de la %s:%d\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
     return 0;
   }
-  else
+  else if (strcmp(msg, "?share") == 0)
   {
-
-    printf("[s] Mesajul receptionat de la clientul %s:%d este -> %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), msg);
-    //printf("[s] Trimitem inapoi mesajul la clientul %s:%d... %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), nr);
-
-    if (strcmp(msg, "?share") == 0)
-    {
-      char filename[30];
-      printf("[s] Clientul doreste sa partajeze un fisier in retea.\n");
-      get_filename_from_user();                                               //ii spune clientului sa introduca numele fisierului pe care doreste sa il partajeze cu reteaua
-      upload_to_db(filename, inet_ntoa(from.sin_addr), ntohs(from.sin_port)); //pune in db numele fisierului, alaturi de adresa clientului
-      char confirm[100] = "  [s] Fisier uploadat cu succes in baza de date.\n";
-      if (write(tdL.cl, confirm, 100) <= 0)
-      {
-        perror("[s] Eroare la write() catre client.\n");
-      }
-    }
-    else if (strcmp(msg, "?download") == 0)
-    {
-      char filename[30];
-      char client_target[100];
-      char *path;
-      char adress[100];
-      printf("[s] Clientul doreste sa descarce un fisier din retea.\n");
-      get_filename_from_user();         //ii spune clientului sa introduca numele fisierului pe care doreste sa il descarce
-      call_db(filename, client_target); //serverul cauta in baza de date clientul care are acel fisier si obtine adresa clientului
-      send_path_adress(path, adress);   //ii trimite clientului initial adresa clientului
-    }
-
-    if (write(tdL.cl, msg, 100) <= 0)
+    char filename[30];
+    printf("[s] Clientul doreste sa partajeze un fisier in retea.\n");
+    get_filename_from_user();                                               //ii spune clientului sa introduca numele fisierului pe care doreste sa il partajeze cu reteaua
+    upload_to_db(filename, inet_ntoa(from.sin_addr), ntohs(from.sin_port)); //pune in db numele fisierului, alaturi de adresa clientului
+    char confirm[100] = "  [s] Fisier uploadat cu succes in baza de date.\n";
+    if (write(tdL.cl, confirm, 100) <= 0)
     {
       perror("[s] Eroare la write() catre client.\n");
     }
-    // else
-    //   printf("[server] Mesajul a fost trasmis cu succes catre clientul %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
+  }
+  else if (strcmp(msg, "?download") == 0)
+  {
+    char filename[30];
+    char client_target[100];
+    char *path;
+    char adress[100];
+    printf("[s] Clientul doreste sa descarce un fisier din retea.\n");
+    get_filename_from_user();         //ii spune clientului sa introduca numele fisierului pe care doreste sa il descarce
+    call_db(filename, client_target); //serverul cauta in baza de date clientul care are acel fisier si obtine adresa clientului
+    send_path_adress(path, adress);   //ii trimite clientului initial adresa clientului
+  }
+
+  if (write(tdL.cl, msg, 100) <= 0)
+  {
+    perror("[s] Eroare la write() catre client.\n");
   }
 }

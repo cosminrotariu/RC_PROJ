@@ -13,7 +13,6 @@ extern int errno;
 int port = 3000;
 int main(int argc, char *argv[])
 {
-
   int sd; // socket descriptor
   struct sockaddr_in server;
   char buf[100];
@@ -32,7 +31,9 @@ int main(int argc, char *argv[])
     perror("[c] Eroare la connect().\n");
     return errno;
   }
-  printf("[s] V-ati conectat cu succes la server.\n Bun venit. \n Alegeti o comanda: \n 1. ?download \n 2. ?share \n 3. ?exit\n");
+  printf("[s] Bun venit.\n Pentru a va loga folositi comanda '?login user:parola'. \n Daca nu aveti cont, folositi comanda '?register user:parola pentru a va crea unul.\n");
+
+  //Alegeti o comanda: \n 1. ?download \n 2. ?share \n 3. ?exit\n");
 
   while (1)
   {
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
     strcpy(msg, buf);
     read(0, msg, sizeof(msg));
     msg[strlen(msg) - 1] = '\0';
-    printf("[c] Am citit: %s\n", msg);
+    //printf("[c] Am citit: %s\n", msg);
     if (write(sd, &msg, sizeof(msg)) <= 0)
     {
       perror("[c] Eroare la write() spre server.\n");
