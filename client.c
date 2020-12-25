@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 
   while (1)
   {
-    printf("[c] Introduceti un mesaj: ");
+    printf("[c] Introduceti o comanda: ");
     fflush(stdout);
     char msg[100] = " ";
     strcpy(msg, buf);
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
       perror("[c] Eroare la read() de la server.\n");
       return errno;
     }
-    printf("[c] Mesajul primit de la server este: %s\n\n", msg);
+    printf("[s] %s\n\n", msg);
   }
   close(sd);
 }

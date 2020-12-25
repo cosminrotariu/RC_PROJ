@@ -43,7 +43,7 @@ void *read_stdin(void *arg) //in lucru
   printf("Am citit %s\n", buf);
   if (strstr(buf, "?exit") != NULL)
   {
-    printf("[s] Serverul se va opri...\n");
+    printf("[CONSOLE]:  Serverul se va opri...\n");
     exit(0);
   }
   return NULL;
@@ -66,15 +66,13 @@ void upload_to_db(char filename[30], char adress[300], int port)
 }
 int login(char msg[500], void *arg)
 {
+  struct thData tdL;
+  tdL = *((struct thData *)arg);
   if (strstr(msg, "?login"))
   {
-    //?login andrei:parola
-    printf("ai scris login\n");
     char password[25];
     char username[25];
     char credentials[50];
-    struct thData tdL;
-    tdL = *((struct thData *)arg);
     int lg = 0;
     strcpy(credentials, msg + 7);
     for (int i = 0; strlen(credentials); i++)
@@ -94,36 +92,34 @@ int login(char msg[500], void *arg)
         break;
       }
     }
-    printf("user: %s, pass: %s\n", username, password);
     sqlite3_prepare_v2(db, "select * from login;", -1, &stmt, 0);
     char *user, *pass;
     while (sqlite3_step(stmt) != SQLITE_DONE)
     {
       user = sqlite3_column_text(stmt, 0);
       pass = sqlite3_column_text(stmt, 1);
-      printf("userul:%s, parola:%s\n", user, pass);
       if (strcmp(username, user) == 0)
       {
         if (strcmp(password, pass) == 0)
         {
-          printf("logare reusita\n");
+          // printf("logare reusita\n");
           return 1;
         }
         else
         {
-          printf("parola nu este buna\n");
+          //printf("parola nu este buna\n");
           if (write(tdL.cl, "parola incorecta", 100) <= 0)
           {
-            perror("[s] Eroare la write() catre client.\n");
+            perror("[CONSOLE]:  Eroare la write() catre client.\n");
           }
           return 0;
         }
       }
     }
-    printf("contul nu exista. va rugam sa va creati un cont\n");
+    //printf("contul nu exista. va rugam sa va creati un cont\n");
     if (write(tdL.cl, "contul nu exista.", 100) <= 0)
     {
-      perror("[s] Eroare la write() catre client.\n");
+      perror("[CONSOLE]:  Eroare la write() catre client.\n");
     }
     return 0;
   }
@@ -160,7 +156,11 @@ int login(char msg[500], void *arg)
       user = sqlite3_column_text(stmt, 0);
       if (strcmp(username, user) == 0)
       {
-        printf("contul exista deja. va rugam sa alegeti alt user.\n");
+        //printf("contul exista deja. va rugam sa alegeti alt user.\n");
+        if (write(tdL.cl, "contul exista deja.", 100) <= 0)
+        {
+          perror("[CONSOLE]:  Eroare la write() catre client.\n");
+        }
         return 0;
       }
     }
@@ -175,7 +175,7 @@ int login(char msg[500], void *arg)
       int verif_insert = sqlite3_exec(db, insert, NULL, NULL, &error);
       if (verif_insert != SQLITE_OK)
       {
-        printf("[s] eroare: %s\n", error);
+        printf("[CONSOLE]:  eroare: %s\n", error);
       }
       return 1;
     }
@@ -187,19 +187,19 @@ int main()
   int verif_login_table = sqlite3_exec(db, "create table if not exists login(user varchar(50), pass varchar(50));", NULL, NULL, &error);
   if (verif_login_table != SQLITE_OK)
   {
-    printf("[s] eroare: %s", error);
+    printf("[CONSOLE]:  eroare: %s", error);
   }
   int verif_shared_files_table = sqlite3_exec(db, "create table if not exists files(port int, filename varchar(50), dir_parent varchar(50), extension varchar(10));", NULL, NULL, &error);
   if (verif_shared_files_table != SQLITE_OK)
   {
-    printf("[s] eroare: %s", error);
+    printf("[CONSOLE]:  eroare: %s", error);
   }
   int pid;
   i = 0;
-  printf("Serverul a pornit. Se asteapta conexiuni...\n");
+  printf("[CONSOLE]: Serverul a pornit. Se asteapta conexiuni...\n");
   if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
   {
-    perror("[s] Eroare la socket().\n");
+    perror("[CONSOLE]:  Eroare la socket().\n");
     return errno;
   }
   int on = 1;
@@ -212,12 +212,12 @@ int main()
 
   if (bind(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
   {
-    perror("[s] Eroare la bind().\n");
+    perror("[CONSOLE]:  Eroare la bind().\n");
     return errno;
   }
   if (listen(sd, 2) == -1)
   {
-    perror("[s] Eroare la listen().\n");
+    perror("[CONSOLE]:  Eroare la listen().\n");
     return errno;
   }
 
@@ -232,7 +232,7 @@ int main()
     fflush(stdout);
     if ((client = accept(sd, (struct sockaddr *)&from, &length)) < 0)
     {
-      perror("[s] Eroare la accept().\n");
+      perror("[CONSOLE]:  Eroare la accept().\n");
       continue;
     }
     // int idThread; //id-ul threadului
@@ -254,7 +254,7 @@ void *treat(void *arg)
   int logged_in = 0;
   while (1)
   {
-    printf("[s] Asteptam mesajul de la clientul %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
+    printf("[CONSOLE]:  Asteptam mesajul de la clientul %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
     fflush(stdout);
     while (logged_in != 1)
     {
@@ -277,13 +277,13 @@ int logare(void *arg)
 
   if (read(tdL.cl, msg, 100) <= 0)
   {
-    perror("[s] Eroare la read() de la client.\n");
+    perror("[CONSOLE]:  Eroare la read() de la client.\n");
   }
   if (strstr(msg, "?login") || strstr(msg, "?register"))
   {
 
-    printf("[s] %s:%d -> %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), msg);
-    //printf("[s] Trimitem inapoi mesajul la clientul %s:%d... %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), nr);
+    printf("[CONSOLE]:  %s:%d -> %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), msg);
+    //printf("[CONSOLE]:  Trimitem inapoi mesajul la clientul %s:%d... %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), nr);
     if (OK == 0)
     {
       OK = login(msg, arg);
@@ -292,7 +292,7 @@ int logare(void *arg)
       {
         if (write(tdL.cl, "conectat.", 100) <= 0)
         {
-          perror("[s] Eroare la write() catre client.\n");
+          perror("[CONSOLE]:  Eroare la write() catre client.\n");
         }
         return 1;
       }
@@ -309,23 +309,23 @@ int raspunde(void *arg)
 
   if (read(tdL.cl, msg, 100) <= 0)
   {
-    perror("[s] Eroare la read() de la client.\n");
+    perror("[CONSOLE]:  Eroare la read() de la client.\n");
   }
   if (strcmp(msg, "?exit") == 0)
   {
-    printf("[s] deconectat de la %s:%d\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
+    printf("[CONSOLE]:  deconectat de la %s:%d\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
     return 0;
   }
   else if (strcmp(msg, "?share") == 0)
   {
     char filename[30];
-    printf("[s] Clientul doreste sa partajeze un fisier in retea.\n");
+    printf("[CONSOLE]:  Clientul doreste sa partajeze un fisier in retea.\n");
     get_filename_from_user();                                               //ii spune clientului sa introduca numele fisierului pe care doreste sa il partajeze cu reteaua
     upload_to_db(filename, inet_ntoa(from.sin_addr), ntohs(from.sin_port)); //pune in db numele fisierului, alaturi de adresa clientului
-    char confirm[100] = "  [s] Fisier uploadat cu succes in baza de date.\n";
+    char confirm[100] = "  [CONSOLE]:  Fisier uploadat cu succes in baza de date.\n";
     if (write(tdL.cl, confirm, 100) <= 0)
     {
-      perror("[s] Eroare la write() catre client.\n");
+      perror("[CONSOLE]:  Eroare la write() catre client.\n");
     }
   }
   else if (strcmp(msg, "?download") == 0)
@@ -334,7 +334,7 @@ int raspunde(void *arg)
     char client_target[100];
     char *path;
     char adress[100];
-    printf("[s] Clientul doreste sa descarce un fisier din retea.\n");
+    printf("[CONSOLE]:  Clientul doreste sa descarce un fisier din retea.\n");
     get_filename_from_user();         //ii spune clientului sa introduca numele fisierului pe care doreste sa il descarce
     call_db(filename, client_target); //serverul cauta in baza de date clientul care are acel fisier si obtine adresa clientului
     send_path_adress(path, adress);   //ii trimite clientului initial adresa clientului
@@ -342,6 +342,6 @@ int raspunde(void *arg)
 
   if (write(tdL.cl, msg, 100) <= 0)
   {
-    perror("[s] Eroare la write() catre client.\n");
+    perror("[CONSOLE]:  Eroare la write() catre client.\n");
   }
 }
