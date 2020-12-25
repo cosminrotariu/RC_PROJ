@@ -6,5 +6,6 @@
 - call_db
 - send_path_adress
 - upload_to_db
-- clientii sa se poata conecta intre ei 
+- clientii sa se poata conecta intre ei
+- clientul sa poata sa caute un fisier in sistem si sa afle path-ul
 - ?connect
