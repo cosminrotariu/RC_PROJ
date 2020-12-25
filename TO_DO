@@ -1,7 +1,7 @@
 # RC_PROJ
 
-- database
-- login
+- database(DONE)
+- login(DONE)
 - get_filename_from_user
 - call_db
 - send_path_adress
