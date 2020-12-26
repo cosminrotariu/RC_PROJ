@@ -290,7 +290,7 @@ int logare(void *arg)
       //printf("%d\n", OK);
       if (OK == 1)
       {
-        if (write(tdL.cl, "conectat.", 100) <= 0)
+        if (write(tdL.cl, "Conectat la server cu succes.\n\nBun venit.\n\n-> ?share [filename] [parent_dir] [extension]\n-> ?download [filename] [extension]\n-> ?connect [port]\n-> ?exit", 300) <= 0)
         {
           perror("[CONSOLE]:  Eroare la write() catre client.\n");
         }
@@ -298,6 +298,12 @@ int logare(void *arg)
       }
       return 0;
     }
+  }else{
+    if (write(tdL.cl, "puteti folosi functionalitatile programului doar dupa ce va logati.", 100) <= 0)
+        {
+          perror("[CONSOLE]:  Eroare la write() catre client.\n");
+        }
+        return 0;
   }
 }
 int raspunde(void *arg)
@@ -322,7 +328,7 @@ int raspunde(void *arg)
     printf("[CONSOLE]:  Clientul doreste sa partajeze un fisier in retea.\n");
     get_filename_from_user();                                               //ii spune clientului sa introduca numele fisierului pe care doreste sa il partajeze cu reteaua
     upload_to_db(filename, inet_ntoa(from.sin_addr), ntohs(from.sin_port)); //pune in db numele fisierului, alaturi de adresa clientului
-    char confirm[100] = "  [CONSOLE]:  Fisier uploadat cu succes in baza de date.\n";
+    char confirm[100] = "Fisier uploadat cu succes in baza de date.\n";
     if (write(tdL.cl, confirm, 100) <= 0)
     {
       perror("[CONSOLE]:  Eroare la write() catre client.\n");
@@ -338,10 +344,14 @@ int raspunde(void *arg)
     get_filename_from_user();         //ii spune clientului sa introduca numele fisierului pe care doreste sa il descarce
     call_db(filename, client_target); //serverul cauta in baza de date clientul care are acel fisier si obtine adresa clientului
     send_path_adress(path, adress);   //ii trimite clientului initial adresa clientului
-  }
-
-  if (write(tdL.cl, msg, 100) <= 0)
+     if (write(tdL.cl, "adresa clientului: ", 100) <= 0)
   {
     perror("[CONSOLE]:  Eroare la write() catre client.\n");
+  }
+  }else{
+    if (write(tdL.cl, "Comanda necunoscuta.", 100) <= 0)
+  {
+    perror("[CONSOLE]:  Eroare la write() catre client.\n");
+  }
   }
 }

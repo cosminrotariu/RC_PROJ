@@ -33,13 +33,11 @@ int main(int argc, char *argv[])
   }
   printf("[s] Bun venit.\n Pentru a va loga folositi comanda '?login user:parola'. \n Daca nu aveti cont, folositi comanda '?register user:parola pentru a va crea unul.\n");
 
-  //Alegeti o comanda: \n 1. ?download \n 2. ?share \n 3. ?exit\n");
-
   while (1)
   {
     printf("[c] Introduceti o comanda: ");
     fflush(stdout);
-    char msg[100] = " ";
+    char msg[300] = " ";
     strcpy(msg, buf);
     read(0, msg, sizeof(msg));
     msg[strlen(msg) - 1] = '\0';
