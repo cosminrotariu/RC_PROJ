@@ -38,30 +38,29 @@ int main(int argc, char *argv[])
     printf("[c] Introduceti o comanda: ");
     fflush(stdout);
     char msg[300] = " ";
-    strcpy(msg, buf);
+    //char msg[300];
+    //strcpy(msg, buf);
     read(0, msg, sizeof(msg));
     msg[strlen(msg) - 1] = '\0';
-    //printf("[c] Am citit: %s\n", msg);
-    if (write(sd, &msg, sizeof(msg)) <= 0)
+    printf("[c] Am citit: %s\n", msg);
+    if (write(sd, msg, sizeof(msg)) <= 0)
     {
       perror("[c] Eroare la write() spre server.\n");
       return errno;
     }
-    else
+    if (strcmp(msg, "?exit") == 0)
     {
-      if (strcmp(msg, "?exit") == 0)
-      {
-        close(sd);
-        printf("[c] Deconectat de la server.\n");
-        exit(1);
-      }
+      close(sd);
+      printf("[c] Deconectat de la server.\n");
+      exit(1);
     }
-    if (read(sd, &msg, sizeof(msg)) < 0)
+    char rec[300];
+    if (read(sd, rec, sizeof(rec)) <= 0)
     {
       perror("[c] Eroare la read() de la server.\n");
       return errno;
     }
-    printf("[s] %s\n\n", msg);
+    printf("[s] %s\n", rec);
   }
   close(sd);
 }

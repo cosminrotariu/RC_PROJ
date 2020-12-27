@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include<sys/wait.h>
 #include "sqlite3.h"
 
 char *error;
@@ -29,12 +30,13 @@ typedef struct thData
   int cl;       //descriptorul intors de accept
 } thData;
 
-static void *treat(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
-int raspunde(void *);
+void *treat(void *arg); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
+int logare(void *arg);
+int raspunde(void *arg);
 struct sockaddr_in server; // structura folosita de server
 struct sockaddr_in from;
-int logare(void *arg);
-void *treat(void *arg);
+
+// void *treat(void *arg);
 void *read_stdin(void *arg) //in lucru
 {
 
@@ -64,7 +66,7 @@ void upload_to_db(char filename[30], char adress[300], int port)
 {
   printf("Called upload_to_db()\n");
 }
-int login(char msg[500], void *arg)
+int login(char msg[], void *arg)
 {
   struct thData tdL;
   tdL = *((struct thData *)arg);
@@ -89,6 +91,12 @@ int login(char msg[500], void *arg)
           username[k] = credentials[k];
         }
         username[i] = '\0';
+        // for(int y=i;y<strlen(username);y++){
+        //   username[y]='\0';
+        // }
+        // for(int h=lg;h<strlen(password);h++){
+        //   p
+        // }
         break;
       }
     }
@@ -255,7 +263,7 @@ void *treat(void *arg)
   while (1)
   {
     printf("[CONSOLE]:  Asteptam mesajul de la clientul %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
-    fflush(stdout);
+   // fflush(stdout);
     while (logged_in != 1)
     {
       logged_in = logare((struct thData *)arg);
@@ -270,7 +278,7 @@ void *treat(void *arg)
 };
 int logare(void *arg)
 {
-  char msg[100];
+  char msg[300];
 
   struct thData tdL;
   tdL = *((struct thData *)arg);
@@ -298,22 +306,27 @@ int logare(void *arg)
       }
       return 0;
     }
-  }else{
-    if (write(tdL.cl, "puteti folosi functionalitatile programului doar dupa ce va logati.", 100) <= 0)
-        {
-          perror("[CONSOLE]:  Eroare la write() catre client.\n");
-        }
-        return 0;
   }
-}
+  else
+  {
+    if (write(tdL.cl, "puteti folosi functionalitatile programului doar dupa ce va logati.", 100) <= 0)
+    {
+      perror("[CONSOLE]:  Eroare la write() catre client.\n");
+    }
+    return 0;
+  }
+};
 int raspunde(void *arg)
 {
-  char msg[100];
-
+  char msg[300];
+  int okei = 0;
   struct thData tdL;
   tdL = *((struct thData *)arg);
-
-  if (read(tdL.cl, msg, 100) <= 0)
+  char filename[30];
+  char parent_dir[30];
+  char extension[30];
+  //AICI ESTE PROBLEMA, READ-UL NU CITESTE BN DE LA CLIENT
+  if (read(tdL.cl, msg, sizeof(msg)) <= 0)
   {
     perror("[CONSOLE]:  Eroare la read() de la client.\n");
   }
@@ -322,36 +335,53 @@ int raspunde(void *arg)
     printf("[CONSOLE]:  deconectat de la %s:%d\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
     return 0;
   }
-  else if (strcmp(msg, "?share") == 0)
-  {
-    char filename[30];
+  else if (strstr(msg, "?share"))
+  { //msg =   ?share file.jpg poze .jpg
+    okei = 1;
+
     printf("[CONSOLE]:  Clientul doreste sa partajeze un fisier in retea.\n");
-    get_filename_from_user();                                               //ii spune clientului sa introduca numele fisierului pe care doreste sa il partajeze cu reteaua
+
+    char *token = strtok(msg, " ");
+    token = strtok(NULL, " ");
+    strcpy(filename, token);
+    token = strtok(NULL, " ");
+    strcpy(parent_dir, token);
+    token = strtok(NULL, " ");
+    strcpy(extension, token);
+    //token=strtok(NULL," ");
+    printf("filename: %s, parent_dir: %s, extension: %s\n", filename, parent_dir, extension);
+
     upload_to_db(filename, inet_ntoa(from.sin_addr), ntohs(from.sin_port)); //pune in db numele fisierului, alaturi de adresa clientului
     char confirm[100] = "Fisier uploadat cu succes in baza de date.\n";
     if (write(tdL.cl, confirm, 100) <= 0)
     {
       perror("[CONSOLE]:  Eroare la write() catre client.\n");
     }
+    return 1;
   }
-  else if (strcmp(msg, "?download") == 0)
+  else if (strstr(msg, "?download"))
   {
     char filename[30];
     char client_target[100];
     char *path;
     char adress[100];
+    okei = 1;
     printf("[CONSOLE]:  Clientul doreste sa descarce un fisier din retea.\n");
     get_filename_from_user();         //ii spune clientului sa introduca numele fisierului pe care doreste sa il descarce
     call_db(filename, client_target); //serverul cauta in baza de date clientul care are acel fisier si obtine adresa clientului
     send_path_adress(path, adress);   //ii trimite clientului initial adresa clientului
-     if (write(tdL.cl, "adresa clientului: ", 100) <= 0)
+    if (write(tdL.cl, "adresa clientului: ", 300) <= 0)
+    {
+      perror("[CONSOLE]:  Eroare la write() catre client.\n");
+    }
+    return 1;
+  }
+  if (okei == 0||strstr(msg,filename)==NULL||strstr(msg,parent_dir)==NULL||strstr(msg,extension)==NULL)
   {
-    perror("[CONSOLE]:  Eroare la write() catre client.\n");
+    printf("%s\n",msg);
+    if (write(tdL.cl, msg, 100) <= 0)
+    {
+      perror("[CONSOLE]:  Eroare la write() catre client.\n");
+    }
   }
-  }else{
-    if (write(tdL.cl, "Comanda necunoscuta.", 100) <= 0)
-  {
-    perror("[CONSOLE]:  Eroare la write() catre client.\n");
-  }
-  }
-}
+};
