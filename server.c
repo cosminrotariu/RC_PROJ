@@ -9,18 +9,17 @@
 #include <signal.h>
 #include <pthread.h>
 #include <arpa/inet.h>
-#include<sys/wait.h>
+#include <sys/wait.h>
 #include "sqlite3.h"
+#define PORT 3000
 
-char *error;
 sqlite3 *db;
 sqlite3_stmt *stmt;
 pthread_t th[100]; //Identificatorii thread-urilor care se vor crea
-pthread_t identificatori[100];
 int k = 0;
 int OK = 0;
 int sd; //socket descriptor
-#define PORT 3000
+char *error;
 int i;
 extern int errno;
 
@@ -36,7 +35,6 @@ int raspunde(void *arg);
 struct sockaddr_in server; // structura folosita de server
 struct sockaddr_in from;
 
-// void *treat(void *arg);
 void *read_stdin(void *arg) //in lucru
 {
 
@@ -85,18 +83,11 @@ int login(char msg[], void *arg)
         {
           password[lg++] = credentials[j];
         }
-        //password[strlen(credentials)] = '\0';
         for (int k = 0; k < i; k++)
         {
           username[k] = credentials[k];
         }
         username[i] = '\0';
-        // for(int y=i;y<strlen(username);y++){
-        //   username[y]='\0';
-        // }
-        // for(int h=lg;h<strlen(password);h++){
-        //   p
-        // }
         break;
       }
     }
@@ -229,9 +220,6 @@ int main()
     return errno;
   }
 
-  pthread_t t;
-  pthread_create(&t, NULL, &read_stdin, NULL);
-
   while (1)
   {
     int client;
@@ -243,8 +231,8 @@ int main()
       perror("[CONSOLE]:  Eroare la accept().\n");
       continue;
     }
-    // int idThread; //id-ul threadului
-    // int cl; //descriptorul intors de accept
+    int idThread; //id-ul threadului
+    int cl;       //descriptorul intors de accept
 
     td = (struct thData *)malloc(sizeof(struct thData));
     td->idThread = i++;
@@ -252,7 +240,6 @@ int main()
 
     pthread_create(&th[i], NULL, &treat, td);
   }
-  pthread_join(t, NULL);
 };
 
 void *treat(void *arg)
@@ -263,7 +250,8 @@ void *treat(void *arg)
   while (1)
   {
     printf("[CONSOLE]:  Asteptam mesajul de la clientul %s:%d\n\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port));
-   // fflush(stdout);
+    fflush(stdout);
+    pthread_detach(pthread_self());	
     while (logged_in != 1)
     {
       logged_in = logare((struct thData *)arg);
@@ -283,7 +271,7 @@ int logare(void *arg)
   struct thData tdL;
   tdL = *((struct thData *)arg);
 
-  if (read(tdL.cl, msg, 100) <= 0)
+  if (read(tdL.cl, &msg, 100) <= 0)
   {
     perror("[CONSOLE]:  Eroare la read() de la client.\n");
   }
@@ -294,7 +282,7 @@ int logare(void *arg)
     //printf("[CONSOLE]:  Trimitem inapoi mesajul la clientul %s:%d... %s\n", inet_ntoa(from.sin_addr), ntohs(from.sin_port), nr);
     if (OK == 0)
     {
-      OK = login(msg, arg);
+      OK = login(msg, (struct thData *)arg);
       //printf("%d\n", OK);
       if (OK == 1)
       {
@@ -326,7 +314,7 @@ int raspunde(void *arg)
   char parent_dir[30];
   char extension[30];
   //AICI ESTE PROBLEMA, READ-UL NU CITESTE BN DE LA CLIENT
-  if (read(tdL.cl, msg, sizeof(msg)) <= 0)
+  if (read(tdL.cl, &msg, sizeof(msg)) <= 0)
   {
     perror("[CONSOLE]:  Eroare la read() de la client.\n");
   }
@@ -353,7 +341,7 @@ int raspunde(void *arg)
 
     upload_to_db(filename, inet_ntoa(from.sin_addr), ntohs(from.sin_port)); //pune in db numele fisierului, alaturi de adresa clientului
     char confirm[100] = "Fisier uploadat cu succes in baza de date.\n";
-    if (write(tdL.cl, confirm, 100) <= 0)
+    if (write(tdL.cl, &confirm, 100) <= 0)
     {
       perror("[CONSOLE]:  Eroare la write() catre client.\n");
     }
@@ -376,10 +364,10 @@ int raspunde(void *arg)
     }
     return 1;
   }
-  if (okei == 0||strstr(msg,filename)==NULL||strstr(msg,parent_dir)==NULL||strstr(msg,extension)==NULL)
+  if (okei == 0 || strstr(msg, filename) == NULL || strstr(msg, parent_dir) == NULL || strstr(msg, extension) == NULL)
   {
-    printf("%s\n",msg);
-    if (write(tdL.cl, msg, 100) <= 0)
+    printf("%s\n", msg);
+    if (write(tdL.cl, &msg, 100) <= 0)
     {
       perror("[CONSOLE]:  Eroare la write() catre client.\n");
     }

@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     read(0, msg, sizeof(msg));
     msg[strlen(msg) - 1] = '\0';
     printf("[c] Am citit: %s\n", msg);
-    if (write(sd, msg, sizeof(msg)) <= 0)
+    if (write(sd, &msg, sizeof(msg)) <= 0)
     {
       perror("[c] Eroare la write() spre server.\n");
       return errno;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
       exit(1);
     }
     char rec[300];
-    if (read(sd, rec, sizeof(rec)) <= 0)
+    if (read(sd, &rec, sizeof(rec)) <= 0)
     {
       perror("[c] Eroare la read() de la server.\n");
       return errno;
