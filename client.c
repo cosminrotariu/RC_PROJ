@@ -9,13 +9,14 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include "shared.h"
+
 extern int errno;
 int port = 3000;
 int main(int argc, char *argv[])
 {
   int sd; // socket descriptor
   struct sockaddr_in server;
-  char buf[100];
   if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
   {
     perror("Eroare la socket().\n");
@@ -37,13 +38,18 @@ int main(int argc, char *argv[])
   {
     printf("[c] Introduceti o comanda: ");
     fflush(stdout);
-    char msg[300] = " ";
+    char msg[MESSAGE_BUFFER_SIZE];
     //char msg[300];
     //strcpy(msg, buf);
-    read(0, msg, sizeof(msg));
-    msg[strlen(msg) - 1] = '\0';
+    int r = read(0, msg, sizeof(msg));
+    if (r <= 0)
+    {
+      perror("[c] Eroare la read() de la server.\n");
+      return errno;
+    }
+    msg[r - 1] = '\0';
     printf("[c] Am citit: %s\n", msg);
-    if (write(sd, msg, sizeof(msg)) <= 0)
+    if (write(sd, &msg, sizeof(msg)) <= 0)
     {
       perror("[c] Eroare la write() spre server.\n");
       return errno;
@@ -54,8 +60,8 @@ int main(int argc, char *argv[])
       printf("[c] Deconectat de la server.\n");
       exit(1);
     }
-    char rec[300];
-    if (read(sd, rec, sizeof(rec)) <= 0)
+    char rec[MESSAGE_BUFFER_SIZE];
+    if (read(sd, &rec, sizeof(rec)) <= 0)
     {
       perror("[c] Eroare la read() de la server.\n");
       return errno;
