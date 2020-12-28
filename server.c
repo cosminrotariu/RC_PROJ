@@ -26,7 +26,7 @@ extern int errno;
 
 typedef struct thData
 {
-  int idThread; //id-ul thread-ului tinut in evidenta de acest program
+ // int idThread; //id-ul thread-ului tinut in evidenta de acest program
   int cl;       //descriptorul intors de accept
   int port;
 } thData;
@@ -76,7 +76,7 @@ void upload_to_db(char filename[30], char parent_dir[30], char extension[10], ch
   char insert[256] = "insert into files VALUES(\"";
   strcpy(insert + strlen(insert), adress);
   strcpy(insert + strlen(insert), "\",\"");
-  sprintf(insert+strlen(insert),"%d",port);
+  sprintf(insert + strlen(insert), "%d", port);
   strcpy(insert + strlen(insert), "\",\"");
   strcpy(insert + strlen(insert), filename);
   strcpy(insert + strlen(insert), "\",\"");
@@ -84,7 +84,6 @@ void upload_to_db(char filename[30], char parent_dir[30], char extension[10], ch
   strcpy(insert + strlen(insert), "\",\"");
   strcpy(insert + strlen(insert), extension);
   strcpy(insert + strlen(insert), "\");");
-  printf("%s\n",insert);
   int verif_insert = sqlite3_exec(db, insert, NULL, NULL, &error);
   if (verif_insert != SQLITE_OK)
   {
@@ -206,6 +205,7 @@ int login(char msg[], void *arg)
       return 1;
     }
   }
+  return 0;
 }
 int main()
 {
@@ -220,7 +220,7 @@ int main()
   {
     printf("[CONSOLE]:  eroare: %s", error);
   }
-  int pid;
+  //int pid;
   i = 0;
   printf("[CONSOLE]: Serverul a pornit. Se asteapta conexiuni...\n");
   if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -258,11 +258,11 @@ int main()
       perror("[CONSOLE]:  Eroare la accept().\n");
       continue;
     }
-    int idThread; //id-ul threadului
+   // int idThread; //id-ul threadului
     int cl;       //descriptorul intors de accept
 
     td = (struct thData *)malloc(sizeof(struct thData));
-    td->idThread = i++;
+    //td->idThread = i++;
     td->cl = client;
     td->port = ntohs(from.sin_port);
 
@@ -340,6 +340,7 @@ int logare(void *arg)
     }
     return 0;
   }
+  return 0;
 }
 int raspunde(void *arg)
 {
@@ -389,13 +390,10 @@ int raspunde(void *arg)
   {
     char filename[30];
     char client_target[100];
-    char *path;
     char adress[100];
     okei = 1;
     printf("[CONSOLE]:  Clientul doreste sa descarce un fisier din retea.\n");
-    //get_filename_from_user();         //ii spune clientului sa introduca numele fisierului pe care doreste sa il descarce
     call_db(filename, client_target); //serverul cauta in baza de date clientul care are acel fisier si obtine adresa clientului
-    send_path_adress(path, adress);   //ii trimite clientului initial adresa clientului
     if (write_string(tdL.cl, "adresa clientului: ") <= 0)
     {
       perror("[CONSOLE]:  Eroare la write() catre client.\n");
@@ -405,9 +403,10 @@ int raspunde(void *arg)
   if (okei == 0 || strstr(msg, filename) == NULL || strstr(msg, parent_dir) == NULL || strstr(msg, extension) == NULL)
   {
     printf("%s\n", msg);
-    if (write_string(tdL.cl, &msg) <= 0)
+    if (write_string(tdL.cl, msg) <= 0)
     {
       perror("[CONSOLE]:  Eroare la write() catre client.\n");
     }
   }
+  return 0;
 }
