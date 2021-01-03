@@ -5,7 +5,8 @@
 - get_filename_from_user(DONE)
 - call_db
 - send_path_adress
-- upload_to_db
+- upload_to_db(DONE)
 - clientii sa se poata conecta intre ei
 - clientul sa poata sa caute un fisier in sistem si sa afle path-ul
+- folosire bind https://www.sqlite.org/c3ref/bind_blob.html in loc de concatenarea comenzilor de sqlite cu strcpy
 - ?connect
